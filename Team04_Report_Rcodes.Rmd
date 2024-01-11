@@ -1,0 +1,905 @@
+---
+title: "Predicting NCAA Basketball Conference Winners:
+Who will hang their conference’s banner?
+"
+author: "Brian Papiernik, Xavier Watts, George Cole"
+date: "2023-11-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Library
+
+```{r}
+if (!requireNamespace('devtools', quietly = TRUE)){
+  install.packages('devtools')
+}
+devtools::install_github("andreweatherman/toRvik")
+
+```
+# Loading Libraries
+
+All the libraries are used for the analysis of our predictive analytics project. The "toRvik" library is an R package that was able to scrap data from the barttorvik.com website.
+
+```{r}
+
+library("toRvik")
+library(tidyverse)
+library(dplyr)
+library(forecast)
+library(stats)
+library(httr)
+library(rvest)
+library(caret)
+library(readxl)
+
+```
+
+# Data Preparation
+
+The bart_ratings function is used to extract the data from the website: https://barttorvik.com/trank-time-machine.php. Our group used the function to extract the data for years 2008 to 2023.
+
+```{r}
+teamstats2023 <- bart_ratings(year = 2023)
+
+teamstats2022 <- bart_ratings(year = 2022)
+
+teamstats2021 <- bart_ratings(year = 2021)
+
+teamstats2020 <- bart_ratings(year = 2020)
+
+teamstats2019 <- bart_ratings(year = 2019)
+
+teamstats2018 <- bart_ratings(year = 2018)
+
+teamstats2017 <- bart_ratings(year = 2017)
+
+teamstats2016 <- bart_ratings(year = 2016)
+
+teamstats2015 <- bart_ratings(year = 2015)
+
+teamstats2014 <- bart_ratings(year = 2014)
+
+teamstats2013 <- bart_ratings(year = 2013)
+
+teamstats2012 <- bart_ratings(year = 2012)
+
+teamstats2011 <- bart_ratings(year = 2011)
+
+teamstats2010 <- bart_ratings(year = 2010)
+
+teamstats2009 <- bart_ratings(year = 2009)
+
+teamstats2008 <- bart_ratings(year = 2008)
+
+```
+
+Through data scrapping methods, our group was able to collect data from the website https://barttorvik.com/team-tables_each.php for the years 2008 to 2023. In the code below, our group is reading in the excel data.
+
+```{r}
+
+bart_cbb <- read_excel("CBBdataBart.xlsx")
+```
+
+
+Here we create a new dataframe "team.df2024" by appending the 2008 to 2023 team stats rows on top of one another.
+
+```{r}
+team.df2024 <- rbind(teamstats2023, teamstats2008, teamstats2009, teamstats2010, teamstats2011, teamstats2012, teamstats2013, teamstats2014, teamstats2015, teamstats2016, teamstats2017, teamstats2018, teamstats2019, teamstats2020, teamstats2021, teamstats2022)
+```
+
+In the code below, our group merges the two data frames "team.df2024" and "bart_cbb" on the two columns team and year.
+
+```{r}
+team.df2024 <- merge(team.df2024, bart_cbb, by.x = c("team", "year"), by.y = c("Team", "Year"))
+```
+
+
+In the code below, we filter the "team.df2024" by the Power 6 Conferences: Big Ten, Big 12, ACC, Big East, SEC, and Pac12/10.  
+
+
+```{r}
+team.df2024 <- team.df2024 %>%
+  filter(conf == "B10" |
+           conf == "B12" |
+           conf == "ACC" |
+           conf == "BE" |
+           conf == "SEC" |
+           conf == "P12" |
+           conf == "P10")
+
+```
+
+After, in this code selection, our group creates a new column "conf_winner" for all the Conference Winners from 2008 to 2023. There were a total of 96 conference winners between 2008 and 2023 for the Power 6 Conferences. We created a binary variable. 1 = conference winner 0 = non a conference winner
+
+```{r}
+team.df2024 <- team.df2024 %>%
+  mutate(conf_winner = ifelse(team == "Purdue" & year == 2023 |
+                                team == "Kansas" & year == 2023 |
+                                team == "Miami FL" & year == 2023 |
+                                team == "Marquette" & year == 2023 |
+                                team == "Alabama" & year == 2023 |
+                                team == "UCLA" & year == 2023 |
+                                team == "Wisconsin" & year == 2022 |
+                                team == "Michigan" & year == 2021 |
+                                team == "Maryland" & year == 2020 |
+                                team == "Michigan St." & year == 2019 |
+                                team == "Michigan St." & year == 2018 |
+                                team == "Purdue" & year == 2017 |
+                                team == "Indiana" & year == 2016 |
+                                team == "Wisconsin" & year == 2015 |
+                                team == "Michigan" & year == 2014 |
+                                team == "Indiana" & year == 2013 |
+                                team == "Ohio St." & year == 2012 |
+                                team == "Ohio St." & year == 2011 |
+                                team == "Ohio St." & year == 2010 |
+                                team == "Michigan St." & year == 2009 |
+                                team == "Wisconsin" & year == 2008 |
+                                team == "Kansas" & year == 2022 |
+                                team == "Baylor" & year == 2021 |
+                                team == "Kansas" & year == 2020 |
+                                team == "Texas Tech" & year == 2019 |
+                                team == "Kansas" & year == 2018 |
+                                team == "Kansas" & year == 2017 |
+                                team == "Kansas" & year == 2016 |
+                                team == "Kansas" & year == 2015 |
+                                team == "Kansas" & year == 2014 |
+                                team == "Kansas St." & year == 2013 |
+                                team == "Kansas" & year == 2012 |
+                                team == "Kansas" & year == 2011 |
+                                team == "Kansas" & year == 2010 |
+                                team == "Kansas" & year == 2009 |
+                                team == "Texas" & year == 2008 |
+                                team == "Duke" & year == 2022 |
+                                team == "Virginia" & year == 2021 |
+                                team == "Florida St." & year == 2020 |
+                                team == "Virginia" & year == 2019 |
+                                team == "Virginia" & year == 2018 |
+                                team == "North Carolina" & year == 2017 |
+                                team == "North Carolina" & year == 2016 |
+                                team == "Virginia" & year == 2015 |
+                                team == "Virginia" & year == 2014 |
+                                team == "Miami FL" & year == 2013 |
+                                team == "North Carolina" & year == 2012 |
+                                team == "North Carolina" & year == 2011 | 
+                                team == "Duke" & year == 2010 |
+                                team == "North Carolina" & year == 2009 |
+                                team == "North Carolina" & year == 2008 |
+                                team == "Providence" & year == 2022 |
+                                team == "Villanova" & year == 2021 |
+                                team == "Creighton" & year == 2020 |
+                                team == "Villanova" & year == 2019 |
+                                team == "Xavier" & year == 2018 |
+                                team == "Villanova" & year == 2017 |
+                                team == "Villanova" & year == 2016 |
+                                team == "Villanova" & year == 2015 |
+                                team == "Villanova" & year == 2014 |
+                                team == "Louisville" & year == 2013 |
+                                team == "Louisville" & year == 2012 |
+                                team == "Pittsburgh" & year == 2011 |
+                                team == "Syracuse" & year == 2010 |
+                                team == "Louisville" & year == 2009 |
+                                team == "Georgetown" & year == 2008 |
+                                team == "Auburn" & year == 2022 |
+                                team == "Alabama" & year == 2021 |
+                                team == "Kentucky" & year == 2020 |
+                                team == "LSU" & year == 2019 |
+                                team == "Tennessee" & year == 2018 |
+                                team == "Kentucky" & year == 2017 |
+                                team == "Texas A&M" & year == 2016 |
+                                team == "Kentucky" & year == 2015 |
+                                team == "Florida" & year == 2014 |
+                                team == "Florida" & year == 2013 |
+                                team == "Kentucky" & year == 2012 |
+                                team == "Florida" & year == 2011 |
+                                team == "Kentucky" & year == 2010 |
+                                team == "LSU" & year == 2009 |
+                                team == "Tennessee" & year == 2008 |
+                                team == "Arizona" & year == 2022 |
+                                team == "Oregon" & year == 2021 |
+                                team == "Oregon" & year == 2020 |
+                                team == "Washington" & year == 2019 |
+                                team == "Arizona" & year == 2018 |
+                                team == "Oregon" & year == 2017 |
+                                team == "Oregon" & year == 2016 |
+                                team == "Arizona" & year == 2015 |
+                                team == "Arizona" & year == 2014 |
+                                team == "UCLA" & year == 2013 |
+                                team == "Washington" & year == 2012 |
+                                team == "Arizona" & year == 2011 |
+                                team == "California" & year == 2010 | 
+                                team == "Washington" & year == 2009 |
+                                team == "UCLA" & year == 2008, 1 , 0))
+```
+
+Here is a description of all the columns that we selected in the code below.
+
+team - team
+conf - conference that the team played in for that year
+year - corresponds to all the data for that team in a specific year
+conf_winner - conference winner
+barthag - Power Ranking (Chance of beating the average D1 team)
+barthag_rk - Barthag rank for specific year
+adj_o - Adjusted Offensive Efficiency
+adj_o_rk - Adjusted Offensive rank for specific year
+adj_d - Adjusted Defensive Efficiency
+adj_d_rk - Adjusted Defensive rank for specific year
+adj_t - Adjusted Tempo
+adj_t_rk - Adjusted Tempo rank for specific year
+wab - Wins Above Bubble
+nc_elite_sos - Non-conference elite strength of schedule (Quad 1)
+nc_fut_sos - Non-conference projected average Barthag rating of opponents.
+nc_cur_sos - Non-conference current average Barthag rating of opponents.
+ov_elite_sos - Overall elite strength of Schedule (Quad 1)
+ov_fut_sos - overall projected average Barthag rating of opponents.
+ov_cur_sos - overall current average Barthag rating of opponents
+eFG - Effective Field Goal %
+eFGD. - Defensive Effective Field Goal %
+FTRate - Free Throw Rate
+FTRateD - Defensive Free Throw Rate
+TOVper - Turnover Percentage
+TOVperD - Turnover Percentage Defense
+Orebper - Offensive Rebound Percentage
+OpORebper - Opponent Offensive Rebound Percentage
+RawT - Raw Tempo
+twoPper - 2 Point Percentage
+twoPperD - 2 Point Percentage Defense
+threePper - 3 Point Percentage
+threePperD - 3 Point Percentage Defense
+Blkper - Block Percentage
+Blkedper - Block Percentage Defense
+Astper - Assist Percentage
+OpAstper - Opponent Assist Percentage
+threePRate - Three Point Rate
+threePRateD - Three Point Rate Defense
+Adj.T - Adjusted Tempo Defense,
+AvgHgt - Average Height
+EffHgt - Effective Height
+Exp - Experience on the team
+Talent - Talent on the team based on recruiting rankings
+FTper - Free Throw Percentage
+Op.Ftper - Opponent Free Throw Percentage
+PPPOff - Offensive Points Per Possession
+PPPDef - Defensive Point per Possession
+EliteSOS - Elite Strength of Schedule (Quad 1)
+
+```{r}
+team.df2024 <- team.df2024 %>%
+  select(team, year, conf, conf_winner, barthag, barthag_rk, adj_o, adj_o_rk, adj_d, adj_d_rk, adj_t, adj_t_rk, wab, nc_elite_sos, nc_fut_sos, nc_cur_sos, ov_elite_sos, ov_fut_sos, ov_cur_sos, eFG, eFGD., FTRate, FTRateD, TOVper, TOVperD, Orebper, OpORebper, RawT, twoPper, twoPperD, threePper, threePperD, Blkper, Blkedper, Astper, OpAstper, threePRate, threePRateD, Adj.T, AvgHgt, EffHgt, Exp, Talent, Ftper, Op.Ftper, PPPOff, PPPDef, EliteSOS )
+```
+
+```{r}
+summary(team.df2024)
+```
+
+
+## Visuals
+
+```{r}
+#Correlation Bar Plot
+correlation <- c(
+cor(team.df2024$adj_d, team.df2024$conf_winner),
+cor(team.df2024$adj_o, team.df2024$conf_winner),
+cor(team.df2024$adj_t, team.df2024$conf_winner),
+cor(team.df2024$barthag, team.df2024$conf_winner),
+cor(team.df2024$eFG, team.df2024$conf_winner),
+cor(team.df2024$eFGD., team.df2024$conf_winner),
+cor(team.df2024$AvgHgt, team.df2024$conf_winner),
+cor(team.df2024$Exp, team.df2024$conf_winner),
+cor(team.df2024$Talent, team.df2024$conf_winner),
+cor(team.df2024$PPPOff, team.df2024$conf_winner),
+cor(team.df2024$PPPDef, team.df2024$conf_winner),
+cor(team.df2024$threePRate, team.df2024$conf_winner),
+cor(team.df2024$twoPper, team.df2024$conf_winner))
+labels <- c("ADJ O", "Adj D", "AdjTempo", "BARTHAG","eFG", "eFG D", "Avg Hgt",
+"Exp", "Talent", "PPP Off", "PPP Def", "ThreePRate", "TwoPper")
+par(mfrow = c(2,2))
+barplot(correlation ~ labels, ann=FALSE, las=3, cex.names = 0.8)
+
+```
+
+
+## Overall Dataset
+
+In this section, our group is splitting the "team.df2024" dataframe into a training set (80%) and validation set (20%)
+
+```{r}
+RNGkind(sample.kind="Rounding")
+set.seed(123)
+
+train.index <- sample(c(1:dim(team.df2024)[1]), dim(team.df2024)[1]*0.8)  
+ovr_train.df <- team.df2024[train.index, ]
+ovr_valid.df <- team.df2024[-train.index, ]
+head(ovr_train.df)
+head(ovr_valid.df)
+```
+# Logistic Regression
+
+```{r}
+options(scipen = 999)
+OVR_lm <- glm(conf_winner ~  barthag + barthag_rk + adj_o_rk + adj_o + adj_d + adj_d_rk + adj_t + adj_t_rk + wab + nc_elite_sos + nc_fut_sos + nc_cur_sos + ov_elite_sos + ov_fut_sos + ov_cur_sos + eFG + eFGD. + FTRate + FTRateD + TOVper + TOVperD + Orebper + OpORebper + RawT + twoPper + twoPperD + threePper + threePperD + Blkper + Blkedper + Astper + OpAstper + threePRate + threePRateD + Adj.T + AvgHgt + EffHgt + Exp + Talent + Ftper + Op.Ftper + PPPOff + PPPDef + EliteSOS, data = ovr_train.df, family = "binomial", na.action = na.exclude)
+OVR_lm
+```
+
+In the code above, we created a logistic regression that is predicting the binary outcome variable 'conf_winner' using all of the predictor independent variables listed in the formula above. Each coefficient represents the change in the log-odds of the response variable for a one-unit change in the corresponding variable if all the other variables are constant. Negative coefficients represent a negative relationship with the log-odds of being a conference winner. Positive coefficients represent a positive relationship with the log-odds of being a conference winner. There are 952 degrees of freedom for the null model and 909 degrees of freedom for the residual model. The null deviance is 520.3 which represents the deviance of the null model. The residual deviance is 176.3 which represents the deviance of the model with no predictors. The smaller the null deviance and residual deviance indicate a better fitted model. The AIC is 264.3 which is relatively low and indicates a better fitted model if the score is low.
+
+```{r}
+# Make predictions on the validation dataset
+ovr_predictions <- predict(OVR_lm, newdata = ovr_valid.df, type = "response")
+
+# Convert predicted probabilities to class labels (0 or 1) based on a threshold (e.g., 0.5)
+ovr_predicted_classes <- ifelse(ovr_predictions > 0.5, 1, 0)
+
+# Create a confusion matrix
+ovr_conf_matrix <- confusionMatrix(as.factor(ovr_valid.df$conf_winner), as.factor(ovr_predicted_classes), positive= '1')
+
+# Print the confusion matrix
+print(ovr_conf_matrix)
+
+#calc specificity, etc.
+```
+In the outcome above, the model demonstrates high overall accuracy (89.54%), but sensitivity is relatively low (44%). This suggests that the model is less effective at correctly identifying instances of the positive class. The Kappa statistic accounts for agreement by chance and is 0.4103, indicating moderate agreement. Mcnemar's Test P-Value is 0.6892, suggesting no significant difference in errors between the model and the reference. Further evaluation and potential model improvement may be needed, especially if correctly identifying positive cases is crucial for the application.
+
+# Backward Selection
+
+```{r}
+OVR_lm.backward <- step(OVR_lm, direction = 'backward')
+summary(OVR_lm.backward)
+
+#accuracy
+ovr.lm.back.pred <- predict(OVR_lm.backward, ovr_valid.df, na.action = na.pass)
+accuracy(ovr.lm.back.pred, ovr_valid.df$conf_winner)
+```
+
+Based on the backward selection, it is important to note that the variables selected from our function are adj_o_rk, adj_d, adj_d_rk, wab, 
+    nc_elite_sos, nc_cur_sos, ov_elite_sos, ov_fut_sos, eFGD., 
+    TOVperD, Orebper, threePRateD, Adj.T, AvgHgt, Exp. As stated before, positive coefficients increase the likelihood of being a conference winner while negative coefficients decrease the likelihood of being a conference winner. Several predictors, including adj_d, wab, nc_elite_sos, ov_elite_sos, ov_fut_sos, and AvgHgt, are statistically significant at a 5% significance level. The AIC is 229.97, providing a measure of model fit. A lower AIC indicates a better-fitting model
+
+# Forward Selection
+
+```{r}
+OVR.lm.null <- lm(conf_winner ~ 1, data = ovr_train.df, na.action = na.exclude)
+OVR.lm.forward <- step(OVR.lm.null, direction = 'forward', scope = list(lower = OVR.lm.null, upper = OVR_lm))
+
+#accuracy
+ovr.lm.forward.pred <- predict(OVR.lm.forward, ovr_valid.df, na.action = na.pass)
+accuracy(ovr.lm.forward.pred, ovr_valid.df$conf_winner)
+```
+
+# Stepwise Selection
+
+```{r}
+OVR.lm.stepwise <- step(OVR_lm, direction = 'both')
+summary(OVR.lm.stepwise)
+
+#accuracy
+ovr.lm.step.pred <- predict(OVR.lm.stepwise, ovr_valid.df, na.action = na.pass)
+accuracy(ovr.lm.step.pred, ovr_valid.df$conf_winner)
+```
+
+
+## Big Ten Conference
+
+In this section, our group is splitting the "B10.df" dataframe that we created by filtering for only teams in the Big 10 conference into a training set (80%) and validation set (20%)
+
+```{r}
+B10.df <- team.df2024 %>%
+  filter(conf == "B10")
+
+RNGkind(sample.kind="Rounding")
+set.seed(123)
+
+B10train.index <- sample(c(1:dim(B10.df)[1]), dim(B10.df)[1]*0.8)  
+B10_train.df <-B10.df[B10train.index, ]
+B10_valid.df <- B10.df[-B10train.index, ]
+head(B10_train.df)
+head(B10_valid.df)
+
+```
+
+# Logistic Regression
+
+```{r}
+options(scipen = 999)
+B10.lm <- glm(conf_winner ~  barthag + barthag_rk + adj_o_rk + adj_o + adj_d + adj_d_rk + adj_t + adj_t_rk + wab + nc_elite_sos + nc_fut_sos + nc_cur_sos + ov_elite_sos + ov_fut_sos + ov_cur_sos + eFG + eFGD. + FTRate + FTRateD + TOVper + TOVperD + Orebper + OpORebper + RawT + twoPper + twoPperD + threePper + threePperD + Blkper + Blkedper + Astper + OpAstper + threePRate + threePRateD + Adj.T + AvgHgt + EffHgt + Exp + Talent + Ftper + Op.Ftper + PPPOff + PPPDef + EliteSOS, data = B10_train.df, family = "binomial", na.action = na.exclude)
+B10.lm
+```
+
+In the code above, we created a logistic regression that is predicting the binary outcome variable 'conf_winner' using all of the predictor independent variables listed in the formula above. Each coefficient represents the change in the log-odds of the response variable for a one-unit change in the corresponding variable if all the other variables are constant. Negative coefficients represent a negative relationship with the log-odds of being a conference winner. Positive coefficients represent a positive relationship with the log-odds of being a conference winner. There are 163 degrees of freedom for the null model and 121 degrees of freedom for the residual model. The null deviance is 90.85 which represents the deviance of the null model. The residual deviance is very small 5.5e-9 which represents the deviance of the model with no predictors. The smaller the null deviance and residual deviance indicate a better fitted model. The AIC is 86 which is very low and indicates a better fitted model if the score is low.
+
+```{r}
+# Make predictions on the validation dataset
+B10_predictions <- predict(B10.lm, newdata = B10_valid.df, type = "response")
+
+# Convert predicted probabilities to class labels (0 or 1) based on a threshold (e.g., 0.5)
+B10_predicted_classes <- ifelse(B10_predictions > 0.5, 1, 0)
+
+# Create a confusion matrix
+B10_conf_matrix <- confusionMatrix(as.factor(B10_valid.df$conf_winner), as.factor(B10_predicted_classes), positive = '1')
+
+# Print the confusion matrix
+print(B10_conf_matrix)
+
+#calc specificity, etc. 
+```
+
+The model shows a high overall accuracy of 90.48%, but this is primarily due to the high proportion of true negatives (97.62% No Information Rate). Sensitivity is 0%, indicating that the model failed to correctly identify any instances of the positive class. The negative predictive value is relatively high at 97.44%, suggesting that when the model predicts the negative class, it is often correct. However, the lack of sensitivity raises concerns, and the Kappa value is negative, indicating poor agreement beyond chance. Further investigation and potential model improvement are necessary, especially regarding the model's ability to identify positive cases.
+
+# Backward Selection
+
+```{r}
+B10_lm.backward <- step(B10.lm, direction = 'backward')
+summary(B10_lm.backward)
+
+#accuracy
+B10.lm.back.pred <- predict(B10_lm.backward, B10_valid.df, na.action = na.pass)
+accuracy(B10.lm.back.pred, B10_valid.df$conf_winner)
+```
+
+Based on the backward selection, it is important to note that the variables selected from our function are adj_t_rk, wab, eFG, FTRateD, 
+TOVper, TOVperD, RawT, EffHgt, PPPOff. As stated before, positive coefficients increase the likelihood of being a conference winner while negative coefficients decrease the likelihood of being a conference winner. None of the coefficients for the predictors are statistically significant, as indicated by the p-values (all greater than 0.05). The AIC is 20 which is very low, providing a measure of model fit. A lower AIC indicates a better-fitting model
+
+# Forward Selection
+
+```{r}
+B10.lm.null <- lm(conf_winner ~ 1, data = B10_train.df, na.action = na.exclude)
+B10.lm.forward <- step(B10.lm.null, direction = 'forward', scope = list(lower = B10.lm.null, upper = B10.lm))
+
+#accuracy
+B10.lm.forward.pred <- predict(B10.lm.forward, B10_valid.df, na.action = na.pass)
+accuracy(B10.lm.forward.pred, B10_valid.df$conf_winner)
+```
+
+# Stepwise Selection
+
+```{r}
+B10.lm.stepwise <- step(B10.lm, direction = 'both')
+summary(B10.lm.stepwise)
+
+#accuracy
+B10.lm.step.pred <- predict(B10.lm.stepwise, B10_valid.df, na.action = na.pass)
+accuracy(B10.lm.step.pred, B10_valid.df$conf_winner)
+```
+
+## Big 12 Conference
+
+In this section, our group is splitting the "B12.df" dataframe that we created by filtering for only teams in the Big 12 conference into a training set (80%) and validation set (20%)
+
+
+```{r}
+
+B12.df <- team.df2024 %>%
+  filter(conf == "B12")
+
+RNGkind(sample.kind="Rounding")
+set.seed(123)
+
+B12train.index <- sample(c(1:dim(B12.df)[1]), dim(B12.df)[1]*0.8)  
+B12_train.df <-B12.df[B12train.index, ]
+B12_valid.df <- B12.df[-B12train.index, ]
+head(B12_train.df)
+head(B12_valid.df)
+
+```
+
+# Logistic Regression
+
+```{r}
+options(scipen = 999)
+B12_lm <- glm(conf_winner ~  barthag + barthag_rk + adj_o_rk + adj_o + adj_d + adj_d_rk + adj_t + adj_t_rk + wab + nc_elite_sos + nc_fut_sos + nc_cur_sos + ov_elite_sos + ov_fut_sos + ov_cur_sos + eFG + eFGD. + FTRate + FTRateD + TOVper + TOVperD + Orebper + OpORebper + RawT + twoPper + twoPperD + threePper + threePperD + Blkper + Blkedper + Astper + OpAstper + threePRate + threePRateD + Adj.T + AvgHgt + EffHgt + Exp + Talent + Ftper + Op.Ftper + PPPOff + PPPDef + EliteSOS, data = B12_train.df, family = "binomial", na.action = na.exclude)
+B12_lm
+```
+
+
+In the code above, we created a logistic regression that is predicting the binary outcome variable 'conf_winner' using all of the predictor independent variables listed in the formula above. Each coefficient represents the change in the log-odds of the response variable for a one-unit change in the corresponding variable if all the other variables are constant. Negative coefficients represent a negative relationship with the log-odds of being a conference winner. Positive coefficients represent a positive relationship with the log-odds of being a conference winner. There are 133 degrees of freedom for the null model and 90 degrees of freedom for the residual model. The null deviance is 85.35 which represents the deviance of the null model. The residual deviance is very small 3.4e-9 which represents the deviance of the model with no predictors. The smaller the null deviance and residual deviance indicate a better fitted model. The AIC is 88 which is very low and indicates a better fitted model if the score is low.
+
+# Confusion Matrax
+
+```{r}
+# Make predictions on the validation dataset
+B12_predictions <- predict(B12_lm, newdata = B12_valid.df, type = "response")
+
+# Convert predicted probabilities to class labels (0 or 1) based on a threshold (e.g., 0.5)
+B12_predicted_classes <- ifelse(B12_predictions > 0.6, 1, 0)
+
+# Create a confusion matrix
+B12_conf_matrix <- confusionMatrix(as.factor(B12_valid.df$conf_winner), as.factor(B12_predicted_classes), positive = '1')
+
+# Print the confusion matrix
+print(B12_conf_matrix)
+
+#calc specificity, etc. 
+```
+
+The model shows an overall accuracy of 76.47%, but this is mostly driven by the high proportion of true negatives. Sensitivity is 0%, indicating that the model failed to correctly identify any instances of the positive class. The negative predictive value is relatively high at 83.87%, suggesting that when the model predicts the negative class, it is often correct. However, the lack of sensitivity raises concerns, and the Kappa value is negative, indicating poor agreement beyond chance. The balanced accuracy is also low at 44.83%. Further investigation and potential model improvement are necessary, especially regarding the model's ability to identify positive cases.
+
+# Backward Selection
+
+```{r}
+B12_lm.backward <- step(B12_lm, direction = 'backward')
+summary(B12_lm.backward)
+
+#accuracy
+B12.lm.back.pred <- predict(B12_lm.backward, B12_valid.df, na.action = na.pass)
+accuracy(B12.lm.back.pred, B12_valid.df$conf_winner)
+```
+Based on the backward selection, it is important to note that the variables selected from our function are adj_o, adj_t, nc_cur_sos, eFGD., 
+    FTRate, TOVperD, Blkper, PPPDef. As stated before, positive coefficients increase the likelihood of being a conference winner while negative coefficients decrease the likelihood of being a conference winner. None of the coefficients for the predictors are statistically significant, as indicated by the p-values (all greater than 0.05). The AIC is 18 which is very low, providing a measure of model fit. A lower AIC indicates a better-fitting model. The intercept has a very large negative value, indicating an extreme estimate. This could be a result of multicollinearity or other issues in model estimation.
+
+
+# Forward Selection
+
+```{r}
+B12.lm.null <- lm(conf_winner ~ 1, data = B12_train.df, na.action = na.exclude)
+B12.lm.forward <- step(B12.lm.null, direction = 'forward', scope = list(lower = B12.lm.null, upper = B12_lm))
+
+#accuracy
+B12.lm.forward.pred <- predict(B12.lm.forward, B12_valid.df, na.action = na.pass)
+accuracy(B12.lm.forward.pred, B12_valid.df$conf_winner)
+```
+
+# Stepwise Selection
+
+```{r}
+B12.lm.stepwise <- step(B12_lm, direction = 'both')
+summary(B12.lm.stepwise)
+
+#accuracy
+B12.lm.step.pred <- predict(B12.lm.stepwise, B12_valid.df, na.action = na.pass)
+accuracy(B12.lm.step.pred, B12_valid.df$conf_winner)
+```
+
+## ACC Conference
+
+In this section, our group is splitting the "ACC.df" dataframe that we created by filtering for only teams in the ACC conference into a training set (80%) and validation set (20%)
+
+```{r}
+
+ACC.df <- team.df2024 %>%
+  filter(conf == "ACC")
+
+RNGkind(sample.kind="Rounding")
+set.seed(123)
+
+ACCtrain.index <- sample(c(1:dim(ACC.df)[1]), dim(ACC.df)[1]*0.8)  
+ACC_train.df <-ACC.df[ACCtrain.index, ]
+ACC_valid.df <- ACC.df[-ACCtrain.index, ]
+head(ACC_train.df)
+head(ACC_valid.df)
+```
+
+# Logistic Regression
+
+```{r}
+options(scipen = 999)
+ACC.lm <- glm(conf_winner ~  barthag + barthag_rk + adj_o_rk + adj_o + adj_d + adj_d_rk + adj_t + adj_t_rk + wab + nc_elite_sos + nc_fut_sos + nc_cur_sos + ov_elite_sos + ov_fut_sos + ov_cur_sos + eFG + eFGD. + FTRate + FTRateD + TOVper + TOVperD + Orebper + OpORebper + RawT + twoPper + twoPperD + threePper + threePperD + Blkper + Blkedper + Astper + OpAstper + threePRate + threePRateD + Adj.T + AvgHgt + EffHgt + Exp + Talent + Ftper + Op.Ftper + PPPOff + PPPDef + EliteSOS,  data = ACC_train.df, family = "binomial", na.action = na.exclude)
+ACC.lm
+```
+
+
+In the code above, we created a logistic regression that is predicting the binary outcome variable 'conf_winner' using all of the predictor independent variables listed in the formula above. Each coefficient represents the change in the log-odds of the response variable for a one-unit change in the corresponding variable if all the other variables are constant. Negative coefficients represent a negative relationship with the log-odds of being a conference winner. Positive coefficients represent a positive relationship with the log-odds of being a conference winner. There are 176 degrees of freedom for the null model and 134 degrees of freedom for the residual model. The null deviance is 87.76 which represents the deviance of the null model. The residual deviance is very small 8.4e-9 which represents the deviance of the model with no predictors. The smaller the null deviance and residual deviance indicate a better fitted model. The AIC is 86 which is very low and indicates a better fitted model if the score is low.
+
+# Confusion Matrix
+
+```{r}
+# Make predictions on the validation dataset
+ACC_predictions <- predict(ACC.lm, newdata = ACC_valid.df, type = "response")
+
+# Convert predicted probabilities to class labels (0 or 1) based on a threshold (e.g., 0.5)
+ACC_predicted_classes <- ifelse(ACC_predictions > 0.5, 1, 0)
+
+# Create a confusion matrix
+ACC_conf_matrix <- confusionMatrix(as.factor(ACC_valid.df$conf_winner), as.factor(ACC_predicted_classes), positive = '1')
+
+# Print the confusion matrix
+print(ACC_conf_matrix)
+
+#calc specificity, etc. 
+```
+
+The model shows an overall accuracy of 84.44%, with sensitivity (True Positive Rate) at 28.57%. The Kappa value is 0.2825, indicating fair agreement beyond chance. The balanced accuracy is 61.65%, suggesting a moderate performance balance between sensitivity and specificity. The positive predictive value (precision) is 50%, indicating that half of the predicted positive cases are true positives. The model's performance is relatively balanced, and further investigation or model improvement may be considered based on the specific requirements and constraints of the application.
+
+
+
+# Backward Selection
+
+```{r}
+ACC.lm.backward <- step(ACC.lm, direction = 'backward')
+summary(ACC.lm.backward)
+
+#accuracy
+ACC.lm.back.pred <- predict(ACC.lm.backward, ACC_valid.df, na.action = na.pass)
+accuracy(ACC.lm.back.pred, ACC_valid.df$conf_winner)
+```
+
+Based on the backward selection, it is important to note that the variables selected from our function are adj_d, wab, TOVper, Orebper, 
+    twoPper, threePper, Adj.T, Ftper, PPPOff, PPPDef, EliteSOS. As stated before, positive coefficients increase the likelihood of being a conference winner while negative coefficients decrease the likelihood of being a conference winner. None of the coefficients for the predictors are statistically significant, as indicated by the p-values (all greater than 0.05). The AIC is 24 which is very low, providing a measure of model fit. A lower AIC indicates a better-fitting model. The intercept has a very large positive value, indicating an extreme estimate. This could be a result of multicollinearity or other issues in model estimation.
+
+
+# Forward Selection
+
+```{r}
+ACC.lm.null <- lm(conf_winner ~ 1, data = ACC_train.df, na.action = na.exclude)
+ACC.lm.forward <- step(ACC.lm.null, direction = 'forward', scope = list(lower = ACC.lm.null, upper = ACC.lm))
+
+#accuracy
+ACC.lm.forward.pred <- predict(ACC.lm.forward, ACC_valid.df, na.action = na.pass)
+accuracy(ACC.lm.forward.pred, ACC_valid.df$conf_winner)
+```
+
+# Stepwise Selection
+
+```{r}
+ACC.lm.stepwise <- step(ACC.lm, direction = 'both')
+summary(ACC.lm.stepwise)
+
+#accuracy
+ACC.lm.step.pred <- predict(ACC.lm.stepwise, ACC_valid.df, na.action = na.pass)
+accuracy(ACC.lm.step.pred, ACC_valid.df$conf_winner)
+```
+
+## Big East Conference
+
+In this section, our group is splitting the "BE.df" dataframe that we created by filtering for only teams in the Big East conference into a training set (80%) and validation set (20%)
+
+```{r}
+BE.df <- team.df2024 %>%
+  filter(conf == "BE")
+
+RNGkind(sample.kind="Rounding")
+set.seed(123)
+
+BEtrain.index <- sample(c(1:dim(BE.df)[1]), dim(BE.df)[1]*0.8)  
+BE_train.df <-BE.df[BEtrain.index, ]
+BE_valid.df <- BE.df[-BEtrain.index, ]
+head(BE_train.df)
+head(BE_valid.df)
+
+```
+
+# Logistic Regression
+
+```{r}
+options(scipen = 999)
+BE.lm <- glm(conf_winner ~  barthag + barthag_rk + adj_o_rk + adj_o + adj_d + adj_d_rk + adj_t + adj_t_rk + wab + nc_elite_sos + nc_fut_sos + nc_cur_sos + ov_elite_sos + ov_fut_sos + ov_cur_sos + eFG + eFGD. + FTRate + FTRateD + TOVper + TOVperD + Orebper + OpORebper + RawT + twoPper + twoPperD + threePper + threePperD + Blkper + Blkedper + Astper + OpAstper + threePRate + threePRateD + Adj.T + AvgHgt + EffHgt + Exp + Talent + Ftper + Op.Ftper + PPPOff + PPPDef + EliteSOS, data = BE_train.df, family = "binomial", na.action = na.exclude)
+BE.lm
+```
+
+
+In the code above, we created a logistic regression that is predicting the binary outcome variable 'conf_winner' using all of the predictor independent variables listed in the formula above. Each coefficient represents the change in the log-odds of the response variable for a one-unit change in the corresponding variable if all the other variables are constant. Negative coefficients represent a negative relationship with the log-odds of being a conference winner. Positive coefficients represent a positive relationship with the log-odds of being a conference winner. There are 157 degrees of freedom for the null model and 115 degrees of freedom for the residual model. The null deviance is 79.84 which represents the deviance of the null model. The residual deviance is very small 5.8e-9 which represents the deviance of the model with no predictors. The smaller the null deviance and residual deviance indicate a better fitted model. The AIC is 86 which is very low and indicates a better fitted model if the score is low.
+
+# Confusion Matrix
+
+```{r}
+# Make predictions on the validation dataset
+BE_predictions <- predict(BE.lm, newdata = BE_valid.df, type = "response")
+
+# Convert predicted probabilities to class labels (0 or 1) based on a threshold (e.g., 0.5)
+BE_predicted_classes <- ifelse(BE_predictions > 0.5, 1, 0)
+
+# Create a confusion matrix
+BE_conf_matrix <- confusionMatrix(as.factor(BE_valid.df$conf_winner), as.factor(BE_predicted_classes), positive = '1')
+
+# Print the confusion matrix
+print(BE_conf_matrix)
+
+#calc specificity, etc. 
+```
+
+The model shows an overall accuracy of 82.50%, with sensitivity (True Positive Rate) at 33.33%. The Kappa value is 0.2632, indicating fair agreement beyond chance. The balanced accuracy is 62.25%, suggesting a moderate performance balance between sensitivity and specificity. The positive predictive value (precision) is 40.00%, indicating that 40% of the predicted positive cases are true positives. The model's performance is relatively balanced, and further investigation or model improvement may be considered based on the specific requirements and constraints of the application.
+
+
+# Backward Selection
+
+```{r}
+BE_lm.backward <- step(BE.lm, direction = 'backward')
+summary(BE_lm.backward)
+
+#accuracy
+BE.lm.back.pred <- predict(BE_lm.backward, BE_valid.df, na.action = na.pass)
+accuracy(BE.lm.back.pred, BE_valid.df$conf_winner)
+```
+
+
+Based on the backward selection, it is important to note that the variables selected from our function are wab, ov_elite_sos, eFG, TOVper, 
+Orebper, AvgHgt, PPPOff, EliteSOS. As stated before, positive coefficients increase the likelihood of being a conference winner while negative coefficients decrease the likelihood of being a conference winner. None of the coefficients for the predictors are statistically significant, as indicated by the p-values (all greater than 0.05). The AIC is 18 which is very low, providing a measure of model fit. A lower AIC indicates a better-fitting model. The intercept has a very large positive value, indicating an extreme estimate. This could be a result of multicollinearity or other issues in model estimation.
+    
+# Forward Selection
+
+```{r}
+BE.lm.null <- lm(conf_winner ~ 1, data = BE_train.df, na.action = na.exclude)
+BE.lm.forward <- step(BE.lm.null, direction = 'forward', scope = list(lower = BE.lm.null, upper = BE.lm))
+
+#accuracy
+BE.lm.forward.pred <- predict(BE.lm.forward, BE_valid.df, na.action = na.pass)
+accuracy(BE.lm.forward.pred, BE_valid.df$conf_winner)
+```
+
+# Stepwise Selection
+
+```{r}
+BE.lm.stepwise <- step(BE.lm, direction = 'both')
+summary(BE.lm.stepwise)
+
+#accuracy
+BE.lm.step.pred <- predict(BE.lm.stepwise, BE_valid.df, na.action = na.pass)
+accuracy(BE.lm.step.pred, BE_valid.df$conf_winner)
+```
+
+## SEC Conference
+
+In this section, our group is splitting the "SEC.df" dataframe that we created by filtering for only teams in the SEC conference into a training set (80%) and validation set (20%)
+
+```{r}
+
+SEC.df <- team.df2024 %>%
+  filter(conf == "SEC")
+
+RNGkind(sample.kind="Rounding")
+set.seed(123)
+
+SECtrain.index <- sample(c(1:dim(SEC.df)[1]), dim(SEC.df)[1]*0.8)  
+SEC_train.df <-SEC.df[SECtrain.index, ]
+SEC_valid.df <- SEC.df[-SECtrain.index, ]
+head(SEC_train.df)
+head(SEC_valid.df)
+```
+
+# Logistic Regression
+
+```{r}
+options(scipen = 999)
+SEC.lm <- glm(conf_winner ~  barthag + barthag_rk + adj_o_rk + adj_o + adj_d + adj_d_rk + adj_t + adj_t_rk + wab + nc_elite_sos + nc_fut_sos + nc_cur_sos + ov_elite_sos + ov_fut_sos + ov_cur_sos + eFG + eFGD. + FTRate + FTRateD + TOVper + TOVperD + Orebper + OpORebper + RawT + twoPper + twoPperD + threePper + threePperD + Blkper + Blkedper + Astper + OpAstper + threePRate + threePRateD + Adj.T + AvgHgt + EffHgt + Exp + Talent + Ftper + Op.Ftper + PPPOff + PPPDef + EliteSOS, data = SEC_train.df, family = "binomial", na.action = na.exclude)
+SEC.lm
+```
+
+
+In the code above, we created a logistic regression that is predicting the binary outcome variable 'conf_winner' using all of the predictor independent variables listed in the formula above. Each coefficient represents the change in the log-odds of the response variable for a one-unit change in the corresponding variable if all the other variables are constant. Negative coefficients represent a negative relationship with the log-odds of being a conference winner. Positive coefficients represent a positive relationship with the log-odds of being a conference winner. There are 170 degrees of freedom for the null model and 128 degrees of freedom for the residual model. The null deviance is 81.64 which represents the deviance of the null model. The residual deviance is very small 4.2e-9 which represents the deviance of the model with no predictors. The smaller the null deviance and residual deviance indicate a better fitted model. The AIC is 86 which is very low and indicates a better fitted model if the score is low.
+
+# Confusion Matrix
+
+```{r}
+# Make predictions on the validation dataset
+SEC_predictions <- predict(SEC.lm, newdata = SEC_valid.df, type = "response")
+
+# Convert predicted probabilities to class labels (0 or 1) based on a threshold (e.g., 0.5)
+SEC_predicted_classes <- ifelse(SEC_predictions > 0.5, 1, 0)
+
+# Create a confusion matrix
+SEC_conf_matrix <- confusionMatrix(as.factor(SEC_valid.df$conf_winner), as.factor(SEC_predicted_classes), positive = '1')
+
+# Print the confusion matrix
+print(SEC_conf_matrix)
+
+#calc specificty, etc. 
+```
+
+The model shows an overall accuracy of 93.02%, with sensitivity (True Positive Rate) at 75.00%. The Kappa value is 0.6282, indicating substantial agreement beyond chance. The balanced accuracy is 84.94%, suggesting a good performance balance between sensitivity and specificity. The positive predictive value (precision) is 60.00%, indicating that 60% of the predicted positive cases are true positives. The model's performance is quite good, and it demonstrates a high level of agreement with the actual outcomes.
+
+# Backward Selection
+
+```{r}
+SEC_lm.backward <- step(SEC.lm, direction = 'backward')
+summary(SEC_lm.backward)
+
+#accuracy
+SEC.lm.back.pred <- predict(SEC_lm.backward, SEC_valid.df, na.action = na.pass)
+accuracy(SEC.lm.back.pred, SEC_valid.df$conf_winner)
+```
+
+Based on the backward selection, it is important to note that the variables selected from our function are adj_t, adj_t_rk, wab, ov_elite_sos, 
+Astper,threePRateD, AvgHgt. As stated before, positive coefficients increase the likelihood of being a conference winner while negative coefficients decrease the likelihood of being a conference winner. None of the coefficients for the predictors are statistically significant, as indicated by the p-values (all greater than 0.05). The AIC is 16 which is very low, providing a measure of model fit. A lower AIC indicates a better-fitting model. The intercept has a very large negative value, indicating an extreme estimate. This could be a result of multicollinearity or other issues in model estimation.
+
+# Forward Selection
+
+```{r}
+SEC.lm.null <- lm(conf_winner ~ 1, data = SEC_train.df, na.action = na.exclude)
+SEC.lm.forward <- step(SEC.lm.null, direction = 'forward', scope = list(lower = SEC.lm.null, upper = SEC.lm))
+
+#accuracy
+SEC.lm.forward.pred <- predict(SEC.lm.forward, SEC_valid.df, na.action = na.pass)
+accuracy(SEC.lm.forward.pred, SEC_valid.df$conf_winner)
+```
+
+# Stepwise Selection
+
+```{r}
+SEC.lm.stepwise <- step(SEC.lm, direction = 'both')
+summary(SEC.lm.stepwise)
+
+#accuracy
+SEC.lm.step.pred <- predict(SEC.lm.stepwise, SEC_valid.df, na.action = na.pass)
+accuracy(SEC.lm.step.pred, SEC_valid.df$conf_winner)
+```
+
+## PAC 12 Conference
+
+In this section, our group is splitting the "PAC.df" dataframe that we created by filtering for only teams in the PAC 12 conference into a training set (80%) and validation set (20%)
+
+```{r}
+PAC.df <- team.df2024 %>%
+  filter(conf == "P12" |
+           conf == "P10")
+
+RNGkind(sample.kind="Rounding")
+set.seed(123)
+
+PACtrain.index <- sample(c(1:dim(PAC.df)[1]), dim(PAC.df)[1]*0.8)  
+PAC_train.df <-PAC.df[PACtrain.index, ]
+PAC_valid.df <- PAC.df[-PACtrain.index, ]
+head(PAC_train.df)
+head(PAC_valid.df)
+
+```
+
+# Logistic Regression
+
+```{r}
+options(scipen = 999)
+PAC.lm <- glm(conf_winner ~  barthag + barthag_rk + adj_o_rk + adj_o + adj_d + adj_d_rk + adj_t + adj_t_rk + wab + nc_elite_sos + nc_fut_sos + nc_cur_sos + ov_elite_sos + ov_fut_sos + ov_cur_sos + eFG + eFGD. + FTRate + FTRateD + TOVper + TOVperD + Orebper + OpORebper + RawT + twoPper + twoPperD + threePper + threePperD + Blkper + Blkedper + Astper + OpAstper + threePRate + threePRateD + Adj.T + AvgHgt + EffHgt + Exp + Talent + Ftper + Op.Ftper + PPPOff + PPPDef + EliteSOS, data = PAC_train.df, family = "binomial", na.action = na.exclude)
+PAC.lm
+```
+
+
+In the code above, we created a logistic regression that is predicting the binary outcome variable 'conf_winner' using all of the predictor independent variables listed in the formula above. Each coefficient represents the change in the log-odds of the response variable for a one-unit change in the corresponding variable if all the other variables are constant. Negative coefficients represent a negative relationship with the log-odds of being a conference winner. Positive coefficients represent a positive relationship with the log-odds of being a conference winner. There are 146 degrees of freedom for the null model and 104 degrees of freedom for the residual model. The null deviance is 78.19 which represents the deviance of the null model. The residual deviance is very small 4.2e-9 which represents the deviance of the model with no predictors. The smaller the null deviance and residual deviance indicate a better fitted model. The AIC is 86 which is very low and indicates a better fitted model if the score is low.
+
+# Confusion Matrix
+
+```{r}
+# Make predictions on the validation dataset
+PAC_predictions <- predict(PAC.lm, newdata = PAC_valid.df, type = "response")
+
+# Convert predicted probabilities to class labels (0 or 1) based on a threshold (e.g., 0.5)
+PAC_predicted_classes <- ifelse(PAC_predictions > 0.5, 1, 0)
+
+# Create a confusion matrix
+PAC_conf_matrix <- confusionMatrix(as.factor(PAC_valid.df$conf_winner), as.factor(PAC_predicted_classes), positive = '1')
+
+# Print the confusion matrix
+print(PAC_conf_matrix)
+
+#calc specificty, etc. 
+```
+
+The model shows an overall accuracy of 86.49%, with sensitivity (True Positive Rate) at 50.00%. The Kappa value is 0.4669, indicating moderate agreement beyond chance. The balanced accuracy is 71.77%, suggesting a reasonable performance balance between sensitivity and specificity. The positive predictive value (precision) is 60.00%, indicating that 60% of the predicted positive cases are true positives. The model's performance is generally good, but there may be room for improvement, especially in increasing sensitivity if correctly identifying positive cases is crucial for the application.
+
+# Backward Selection
+
+```{r}
+PAC_lm.backward <- step(PAC.lm, direction = 'backward')
+summary(PAC_lm.backward)
+
+#accuracy 
+PAC.lm.back.pred <- predict(PAC_lm.backward, PAC_valid.df, na.action = na.pass)
+accuracy(PAC.lm.back.pred, PAC_valid.df$conf_winner)
+```
+
+Based on the backward selection, it is important to note that the variables selected from our function are wab, ov_fut_sos, FTRateD, TOVper,
+TOVperD, twoPperD, threePperD, threePRate, PPPOff, PPPDef, 
+EliteSOS. As stated before, positive coefficients increase the likelihood of being a conference winner while negative coefficients decrease the likelihood of being a conference winner. None of the coefficients for the predictors are statistically significant, as indicated by the p-values (all greater than 0.05). The AIC is 24 which is very low, providing a measure of model fit. A lower AIC indicates a better-fitting model. The intercept has a very large negative value, indicating an extreme estimate. This could be a result of multicollinearity or other issues in model estimation.
+
+# Forward Selection
+
+```{r}
+PAC.lm.null <- lm(conf_winner ~ 1, data = PAC_train.df, na.action = na.exclude)
+PAC.lm.forward <- step(PAC.lm.null, direction = 'forward', scope = list(lower = PAC.lm.null, upper = PAC.lm))
+
+#accuracy 
+PAC.lm.forward.pred <- predict(PAC.lm.forward, PAC_valid.df, na.action = na.pass)
+accuracy(PAC.lm.forward.pred, PAC_valid.df$conf_winner)
+```
+
+# Stepwise Selection
+
+```{r}
+PAC.lm.stepwise <- step(PAC.lm, direction = 'both')
+summary(PAC.lm.stepwise)
+
+#accuracy 
+PAC.lm.step.pred <- predict(PAC.lm.stepwise, PAC_valid.df, na.action = na.pass)
+accuracy(PAC.lm.step.pred, PAC_valid.df$conf_winner)
+```
+
